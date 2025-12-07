@@ -1,5 +1,5 @@
 name: myapp
-description: A simple chatbot application using Kolosal AI API
+description: UMKM Seller App - Share products to WhatsApp Story with AI-generated captions
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -20,6 +20,8 @@ dependencies:
   path_provider: ^2.0.15
   shared_preferences: ^2.0.15
   sqflite: ^2.2.8+4
+  url_launcher: ^6.2.1
+  cached_network_image: ^3.3.0
 
 dev_dependencies:
   flutter_test:

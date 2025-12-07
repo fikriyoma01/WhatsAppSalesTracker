@@ -18,6 +18,32 @@ class CatalogueScreen extends StatelessWidget {
         title: const Text('Katalog Produk'),
         backgroundColor: AppConstants.primaryBlue,
         foregroundColor: Colors.white,
+        elevation: 0,
+        actions: [
+          Consumer<ProductProvider>(
+            builder: (context, provider, _) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 16),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${provider.products.length} Produk',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: Consumer<ProductProvider>(
         builder: (context, provider, _) {
@@ -30,25 +56,42 @@ class CatalogueScreen extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.inventory_2_outlined,
-                    size: 80,
-                    color: Colors.grey[400],
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: AppConstants.primaryBlue.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.inventory_2_outlined,
+                      size: 64,
+                      color: AppConstants.primaryBlue.withOpacity(0.5),
+                    ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 24),
                   Text(
-                    'Belum ada produk',
+                    'Belum Ada Produk',
                     style: TextStyle(
-                      fontSize: 18,
-                      color: Colors.grey[600],
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey[700],
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Tap + untuk menambah produk',
+                    'Mulai tambahkan produk pertama Anda',
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.grey[500],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton.icon(
+                    onPressed: () => _showAddProductSheet(context),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Tambah Produk'),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                     ),
                   ),
                 ],
@@ -56,38 +99,43 @@ class CatalogueScreen extends StatelessWidget {
             );
           }
 
-          return GridView.builder(
-            padding: const EdgeInsets.all(AppConstants.paddingMedium),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: AppConstants.paddingMedium,
-              mainAxisSpacing: AppConstants.paddingMedium,
-              childAspectRatio: 0.75,
+          return RefreshIndicator(
+            onRefresh: () => provider.loadProducts(),
+            child: GridView.builder(
+              padding: const EdgeInsets.all(AppConstants.paddingMedium),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 0.72,
+              ),
+              itemCount: provider.products.length,
+              itemBuilder: (context, index) {
+                final product = provider.products[index];
+                return _ProductCard(product: product);
+              },
             ),
-            itemCount: provider.products.length,
-            itemBuilder: (context, index) {
-              final product = provider.products[index];
-              return _ProductCard(product: product);
-            },
           );
         },
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddProductDialog(context),
+        onPressed: () => _showAddProductSheet(context),
         backgroundColor: AppConstants.primaryBlue,
         icon: const Icon(Icons.add, color: Colors.white),
         label: const Text(
           'Tambah Produk',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
         ),
       ),
     );
   }
 
-  void _showAddProductDialog(BuildContext context) {
-    showDialog(
+  void _showAddProductSheet(BuildContext context) {
+    showModalBottomSheet(
       context: context,
-      builder: (_) => const _AddProductDialog(),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const _AddProductSheet(),
     );
   }
 }
@@ -100,9 +148,12 @@ class _ProductCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final formatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+    final isOutOfStock = product.stockQuantity <= 0;
+    final isLowStock = product.stockQuantity > 0 && product.stockQuantity <= 5;
 
     return Card(
-      elevation: 2,
+      elevation: 3,
+      shadowColor: Colors.black.withOpacity(0.1),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppConstants.radiusMedium),
       ),
@@ -115,29 +166,65 @@ class _ProductCard extends StatelessWidget {
             // Product Image
             Expanded(
               flex: 3,
-              child: Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(AppConstants.radiusMedium),
-                  ),
-                ),
-                child: product.imagePath != null
-                    ? ClipRRect(
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(AppConstants.radiusMedium),
-                        ),
-                        child: Image.file(
-                          File(product.imagePath!),
-                          fit: BoxFit.cover,
-                        ),
-                      )
-                    : Icon(
-                        Icons.image,
-                        size: 50,
-                        color: Colors.grey[400],
+              child: Stack(
+                children: [
+                  Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(AppConstants.radiusMedium),
                       ),
+                    ),
+                    child: product.imagePath != null
+                        ? ClipRRect(
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(AppConstants.radiusMedium),
+                            ),
+                            child: Image.file(
+                              File(product.imagePath!),
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Center(
+                                  child: Icon(
+                                    Icons.image_not_supported,
+                                    size: 40,
+                                    color: Colors.grey[400],
+                                  ),
+                                );
+                              },
+                            ),
+                          )
+                        : Center(
+                            child: Icon(
+                              Icons.image,
+                              size: 40,
+                              color: Colors.grey[400],
+                            ),
+                          ),
+                  ),
+                  // Stock badge
+                  if (isOutOfStock || isLowStock)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isOutOfStock ? AppConstants.errorRed : Colors.orange,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          isOutOfStock ? 'Habis' : 'Stok Rendah',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
 
@@ -145,7 +232,7 @@ class _ProductCard extends StatelessWidget {
             Expanded(
               flex: 2,
               child: Padding(
-                padding: const EdgeInsets.all(AppConstants.paddingSmall),
+                padding: const EdgeInsets.all(10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -153,8 +240,8 @@ class _ProductCard extends StatelessWidget {
                     Text(
                       product.name,
                       style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -170,14 +257,32 @@ class _ProductCard extends StatelessWidget {
                             fontSize: 14,
                           ),
                         ),
-                        Text(
-                          'Stok: ${product.stockQuantity}',
-                          style: TextStyle(
-                            color: product.stockQuantity > 0 
-                                ? AppConstants.successGreen 
-                                : AppConstants.errorRed,
-                            fontSize: 12,
-                          ),
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.inventory_2_outlined,
+                              size: 12,
+                              color: isOutOfStock
+                                  ? AppConstants.errorRed
+                                  : isLowStock
+                                      ? Colors.orange
+                                      : AppConstants.successGreen,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Stok: ${product.stockQuantity}',
+                              style: TextStyle(
+                                color: isOutOfStock
+                                    ? AppConstants.errorRed
+                                    : isLowStock
+                                        ? Colors.orange
+                                        : AppConstants.successGreen,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -192,32 +297,113 @@ class _ProductCard extends StatelessWidget {
   }
 
   void _showProductOptions(BuildContext context) {
+    final formatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        padding: const EdgeInsets.all(AppConstants.paddingMedium),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Handle bar
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            // Product info header
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: product.imagePath != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.file(
+                              File(product.imagePath!),
+                              fit: BoxFit.cover,
+                            ),
+                          )
+                        : Icon(Icons.image, color: Colors.grey[400]),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          product.name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          formatter.format(product.price),
+                          style: TextStyle(
+                            color: AppConstants.primaryBlue,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Divider(height: 1, color: Colors.grey[200]),
+            // Actions
             ListTile(
-              leading: const Icon(Icons.edit, color: AppConstants.primaryBlue),
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppConstants.primaryBlue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.edit, color: AppConstants.primaryBlue, size: 20),
+              ),
               title: const Text('Edit Stok'),
+              subtitle: Text('Stok saat ini: ${product.stockQuantity}'),
               onTap: () {
                 Navigator.pop(context);
                 _showEditStockDialog(context);
               },
             ),
             ListTile(
-              leading: const Icon(Icons.delete, color: AppConstants.errorRed),
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppConstants.errorRed.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.delete_outline, color: AppConstants.errorRed, size: 20),
+              ),
               title: const Text('Hapus Produk'),
+              subtitle: const Text('Produk akan dihapus permanen'),
               onTap: () {
                 Navigator.pop(context);
                 _deleteProduct(context);
               },
             ),
+            const SizedBox(height: 16),
           ],
         ),
       ),
@@ -226,36 +412,111 @@ class _ProductCard extends StatelessWidget {
 
   void _showEditStockDialog(BuildContext context) {
     final controller = TextEditingController(text: product.stockQuantity.toString());
-    
+    int newStock = product.stockQuantity;
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit Stok'),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            labelText: 'Stok Baru',
-            border: OutlineInputBorder(),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Icon(Icons.inventory, color: AppConstants.primaryBlue),
+              const SizedBox(width: 8),
+              const Text('Edit Stok'),
+            ],
           ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                product.name,
+                style: TextStyle(
+                  color: AppConstants.textGrey,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Quick adjust buttons
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _QuickAdjustButton(
+                    label: '-10',
+                    onPressed: () {
+                      newStock = (newStock - 10).clamp(0, 9999);
+                      controller.text = newStock.toString();
+                      setDialogState(() {});
+                    },
+                  ),
+                  _QuickAdjustButton(
+                    label: '-1',
+                    onPressed: () {
+                      newStock = (newStock - 1).clamp(0, 9999);
+                      controller.text = newStock.toString();
+                      setDialogState(() {});
+                    },
+                  ),
+                  Container(
+                    width: 80,
+                    margin: const EdgeInsets.symmetric(horizontal: 8),
+                    child: TextField(
+                      controller: controller,
+                      keyboardType: TextInputType.number,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      decoration: InputDecoration(
+                        contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      onChanged: (value) {
+                        newStock = int.tryParse(value) ?? 0;
+                      },
+                    ),
+                  ),
+                  _QuickAdjustButton(
+                    label: '+1',
+                    onPressed: () {
+                      newStock = (newStock + 1).clamp(0, 9999);
+                      controller.text = newStock.toString();
+                      setDialogState(() {});
+                    },
+                  ),
+                  _QuickAdjustButton(
+                    label: '+10',
+                    onPressed: () {
+                      newStock = (newStock + 10).clamp(0, 9999);
+                      controller.text = newStock.toString();
+                      setDialogState(() {});
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Batal'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final stockValue = int.tryParse(controller.text);
+                if (stockValue != null && product.id != null) {
+                  await Provider.of<ProductProvider>(context, listen: false)
+                      .updateProductStock(product.id!, stockValue);
+                  if (context.mounted) Navigator.pop(context);
+                }
+              },
+              child: const Text('Simpan'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final newStock = int.tryParse(controller.text);
-              if (newStock != null && product.id != null) {
-                await Provider.of<ProductProvider>(context, listen: false)
-                    .updateProductStock(product.id!, newStock);
-                if (context.mounted) Navigator.pop(context);
-              }
-            },
-            child: const Text('Simpan'),
-          ),
-        ],
       ),
     );
   }
@@ -264,8 +525,41 @@ class _ProductCard extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Hapus Produk'),
-        content: Text('Yakin ingin menghapus ${product.name}?'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: AppConstants.errorRed),
+            const SizedBox(width: 8),
+            const Text('Hapus Produk'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Yakin ingin menghapus produk ini?'),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.inventory_2, color: Colors.grey[600], size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      product.name,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -290,19 +584,49 @@ class _ProductCard extends StatelessWidget {
   }
 }
 
-class _AddProductDialog extends StatefulWidget {
-  const _AddProductDialog();
+class _QuickAdjustButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onPressed;
+
+  const _QuickAdjustButton({required this.label, required this.onPressed});
 
   @override
-  State<_AddProductDialog> createState() => _AddProductDialogState();
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onPressed,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          border: Border.all(color: AppConstants.primaryBlue.withOpacity(0.3)),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: AppConstants.primaryBlue,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
 }
 
-class _AddProductDialogState extends State<_AddProductDialog> {
+class _AddProductSheet extends StatefulWidget {
+  const _AddProductSheet();
+
+  @override
+  State<_AddProductSheet> createState() => _AddProductSheetState();
+}
+
+class _AddProductSheetState extends State<_AddProductSheet> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _priceController = TextEditingController();
   final _stockController = TextEditingController();
   File? _imageFile;
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
@@ -312,10 +636,15 @@ class _AddProductDialogState extends State<_AddProductDialog> {
     super.dispose();
   }
 
-  Future<void> _pickImage() async {
+  Future<void> _pickImage(ImageSource source) async {
     final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-    
+    final pickedFile = await picker.pickImage(
+      source: source,
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 80,
+    );
+
     if (pickedFile != null) {
       setState(() {
         _imageFile = File(pickedFile.path);
@@ -323,23 +652,87 @@ class _AddProductDialogState extends State<_AddProductDialog> {
     }
   }
 
+  void _showImageSourceDialog() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Pilih Sumber Gambar',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _ImageSourceOption(
+                  icon: Icons.camera_alt,
+                  label: 'Kamera',
+                  onTap: () {
+                    Navigator.pop(context);
+                    _pickImage(ImageSource.camera);
+                  },
+                ),
+                _ImageSourceOption(
+                  icon: Icons.photo_library,
+                  label: 'Galeri',
+                  onTap: () {
+                    Navigator.pop(context);
+                    _pickImage(ImageSource.gallery);
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
+    setState(() => _isSubmitting = true);
+
     final provider = Provider.of<ProductProvider>(context, listen: false);
-    
+
     if (provider.storeId == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Store ID tidak ditemukan')),
+          const SnackBar(
+            content: Text('Store ID tidak ditemukan. Silakan login ulang.'),
+            backgroundColor: Colors.red,
+          ),
         );
+        setState(() => _isSubmitting = false);
       }
       return;
     }
 
     final product = Product(
       storeId: provider.storeId!,
-      name: _nameController.text,
+      name: _nameController.text.trim(),
       price: double.parse(_priceController.text),
       stockQuantity: int.parse(_stockController.text),
       imagePath: _imageFile?.path,
@@ -347,122 +740,310 @@ class _AddProductDialogState extends State<_AddProductDialog> {
 
     try {
       await provider.addProduct(product);
-      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 8),
+                Text('Produk "${product.name}" berhasil ditambahkan'),
+              ],
+            ),
+            backgroundColor: AppConstants.successGreen,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(
+            content: Text('Error: ${e.toString().replaceAll('Exception: ', '')}'),
+            backgroundColor: AppConstants.errorRed,
+          ),
         );
+        setState(() => _isSubmitting = false);
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Tambah Produk'),
-      content: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Image Picker
-              GestureDetector(
-                onTap: _pickImage,
-                child: Container(
-                  height: 150,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(AppConstants.radiusMedium),
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Handle bar
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
-                  child: _imageFile != null
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.circular(AppConstants.radiusMedium),
-                          child: Image.file(_imageFile!, fit: BoxFit.cover),
-                        )
-                      : Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.add_photo_alternate, size: 40, color: Colors.grey[600]),
-                            const SizedBox(height: 8),
-                            Text('Tap untuk pilih foto', style: TextStyle(color: Colors.grey[600])),
-                          ],
+                ),
+                const SizedBox(height: 20),
+
+                // Title
+                const Text(
+                  'Tambah Produk Baru',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Image Picker
+                GestureDetector(
+                  onTap: _showImageSourceDialog,
+                  child: Container(
+                    height: 180,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(AppConstants.radiusMedium),
+                      border: Border.all(
+                        color: Colors.grey[300]!,
+                        style: BorderStyle.solid,
+                      ),
+                    ),
+                    child: _imageFile != null
+                        ? Stack(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(AppConstants.radiusMedium),
+                                child: Image.file(
+                                  _imageFile!,
+                                  width: double.infinity,
+                                  height: double.infinity,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                              Positioned(
+                                top: 8,
+                                right: 8,
+                                child: GestureDetector(
+                                  onTap: () => setState(() => _imageFile = null),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withOpacity(0.5),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.close,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          )
+                        : Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: AppConstants.primaryBlue.withOpacity(0.1),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.add_a_photo,
+                                  size: 32,
+                                  color: AppConstants.primaryBlue,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Tambah Foto Produk',
+                                style: TextStyle(
+                                  color: AppConstants.primaryBlue,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Tap untuk pilih dari kamera atau galeri',
+                                style: TextStyle(
+                                  color: Colors.grey[500],
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Name Field
+                TextFormField(
+                  controller: _nameController,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: InputDecoration(
+                    labelText: 'Nama Produk',
+                    hintText: 'Contoh: Kue Lapis Legit',
+                    prefixIcon: const Icon(Icons.inventory_2_outlined),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Nama produk harus diisi';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                // Price and Stock in Row
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _priceController,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: 'Harga',
+                          prefixText: 'Rp ',
+                          prefixIcon: const Icon(Icons.payments_outlined),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Harga harus diisi';
+                          }
+                          if (double.tryParse(value) == null) {
+                            return 'Format tidak valid';
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _stockController,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: 'Stok',
+                          prefixIcon: const Icon(Icons.inventory),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Stok harus diisi';
+                          }
+                          if (int.tryParse(value) == null) {
+                            return 'Format tidak valid';
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 16),
+                const SizedBox(height: 24),
 
-              // Name Field
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Nama Produk',
-                  border: OutlineInputBorder(),
+                // Submit Button
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: ElevatedButton(
+                    onPressed: _isSubmitting ? null : _submit,
+                    style: ElevatedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: _isSubmitting
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text(
+                            'Simpan Produk',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                  ),
                 ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Nama harus diisi';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 12),
-
-              // Price Field
-              TextFormField(
-                controller: _priceController,
-                decoration: const InputDecoration(
-                  labelText: 'Harga',
-                  border: OutlineInputBorder(),
-                  prefixText: 'Rp ',
-                ),
-                keyboardType: TextInputType.number,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Harga harus diisi';
-                  }
-                  if (double.tryParse(value) == null) {
-                    return 'Harga harus angka';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 12),
-
-              // Stock Field
-              TextFormField(
-                controller: _stockController,
-                decoration: const InputDecoration(
-                  labelText: 'Stok',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.number,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Stok harus diisi';
-                  }
-                  if (int.tryParse(value) == null) {
-                    return 'Stok harus angka';
-                  }
-                  return null;
-                },
-              ),
-            ],
+                const SizedBox(height: 8),
+              ],
+            ),
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Batal'),
+    );
+  }
+}
+
+class _ImageSourceOption extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _ImageSourceOption({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: AppConstants.primaryBlue.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
         ),
-        ElevatedButton(
-          onPressed: _submit,
-          child: const Text('Simpan'),
+        child: Column(
+          children: [
+            Icon(icon, size: 40, color: AppConstants.primaryBlue),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: AppConstants.primaryBlue,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }

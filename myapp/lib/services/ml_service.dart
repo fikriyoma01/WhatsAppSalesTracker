@@ -10,7 +10,7 @@ class MLService {
     if (_session != null) return;
     
     try {
-      final rawAssetFile = await rootBundle.load('assets/models/umkm_forecast1.onnx');
+      final rawAssetFile = await rootBundle.load('lib/models/umkm_forecast.onnx');
       final bytes = rawAssetFile.buffer.asUint8List();
       
       final sessionOptions = OrtSessionOptions();

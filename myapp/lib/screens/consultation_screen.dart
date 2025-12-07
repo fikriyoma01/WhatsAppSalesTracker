@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../models/chat_message.dart';
 import '../services/kolosal_api_service.dart';
 import '../utils/constants.dart';
 
@@ -295,16 +296,4 @@ class _ConsultationScreenState extends State<ConsultationScreen> {
       ),
     );
   }
-}
-
-class ChatMessage {
-  final String text;
-  final bool isUser;
-  final DateTime timestamp;
-
-  ChatMessage({
-    required this.text,
-    required this.isUser,
-    DateTime? timestamp,
-  }) : timestamp = timestamp ?? DateTime.now();
 }
